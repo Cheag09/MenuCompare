@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CSV Row Comparison</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body>
+    <h1>Compare Two CSV Files</h1>
+
+    <label>Select CSV File 1: <input type="file" id="file1" accept=".csv"></label><br><br>
+    <label>Select CSV File 2: <input type="file" id="file2" accept=".csv"></label><br><br>
+    <button onclick="compareCsvFiles()">Compare and Download Missing Rows</button>
+
+    <script>
+        function compareCsvFiles() {
+            const file1 = document.getElementById("file1").files[0];
+            const file2 = document.getElementById("file2").files[0];
+            if (!file1 || !file2) {
+                alert("Please select both CSV files.");
+                return;
+            }
+
+            Papa.parse(file1, {
+                header: true,
+                complete: function(results1) {
+                    Papa.parse(file2, {
+                        header: true,
+                        complete: function(results2) {
+                            findAndExportMissingRows(results1.data, results2.data);
+                        }
+                    });
+                }
+            });
+        }
+
+        function findAndExportMissingRows(data1, data2) {
+            // Convert arrays to sets of JSON strings for easy comparison
+            const set1 = new Set(data1.map(row => JSON.stringify(row)));
+            const set2 = new Set(data2.map(row => JSON.stringify(row)));
+
+            // Rows in data1 but not in data2
+            const missingInData2 = data1.filter(row => !set2.has(JSON.stringify(row))).map(row => ({ ...row, missing_from: 'Sheet 2' }));
+            
+            // Rows in data2 but not in data1
+            const missingInData1 = data2.filter(row => !set1.has(JSON.stringify(row))).map(row => ({ ...row, missing_from: 'Sheet 1' }));
+
+            // Combine the missing rows
+            const combinedMissing = [...missingInData2, ...missingInData1];
+
+            // Convert to CSV
+            const csv = Papa.unparse(combinedMissing);
+
+            // Create a downloadable link
+            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "missing_rows_combined.csv";
+            link.style.display = "none";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
